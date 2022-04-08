@@ -1,7 +1,7 @@
 import sudo_algo2
 import dataset_gen
 import numpy as np
-
+import os.path
 
 def print_weight(w):
 	print("weight is " + str(w))
@@ -45,7 +45,14 @@ def get_average(num_round, round_size, train_data, data_dim, max_epoch, code_siz
         time.sleep(1.0)
     return res_avg, res, test_avg, test
 
+
 if __name__ == '__main__':
+
+	l_name = ['sphere_1000_1000_10', 'torus_1000_1000_2_1', 'uniformnoise_1000_13_1000', 'sphere_1000_1000_4', 'torus_1000_1000_1_0.5', 'uniformnoise_1000_7_1000']
+	for l in l_name:
+		if not os.path.isfile(l + '.csv'):
+			print('missing data file' + l + 'csv')
+
 	stack_data, rawns = dataset_gen.stack_dataset('sphere_1000_1000_10', 'torus_1000_1000_2_1', 'uniformnoise_1000_13_1000')
 	stack_data_43, rawn7 = dataset_gen.stack_dataset('sphere_1000_1000_4', 'torus_1000_1000_1_0.5', 'uniformnoise_1000_7_1000')
 
@@ -69,7 +76,9 @@ if __name__ == '__main__':
 	# print_weight(w)
 	# ae3, w3, w3_avg,loss3, test3 = sudo_algo2.multi_weight(mix_raw_stack, 13, 10, 3, 128, 0.05)
 	# print_weight(w3)
-	ae7, w7, w7_avg,loss7, test7 = sudo_algo2.multi_weight(mix_raw_stack_43, 7, 10, 4, 128, 0.05, 20)
+	ae7, w7, w7_avg,loss7, test7, test7_w = sudo_algo2.multi_weight(mix_raw_stack_43, 7, 10, 4, 128, 0.05, 50)
 	print_weight(w7)
+	print_weight(test7_w)
+	print(loss7)
 	# ae_d, w_d, wd_avg,loss_d, test_d = sudo_algo2.multi_weight(mix_raw_stack_disk, 9, 10, 5, 128, 0.05)
 	# print_weight(w_d)
