@@ -52,25 +52,32 @@ class AE(nn.Module):
         data_dim = kwargs["input_shape"]
         code_dim = kwargs["code_dim"]
         first_layer_dim = kwargs["first_layer_dim"]
+        mid_layer_dim = int(first_layer_dim / 2)
+        print(mid_layer_dim)
         # Encoder
         self.encoder = nn.Sequential(
             nn.Linear(data_dim, first_layer_dim),
 #             nn.Tanh(),
 #             nn.Linear(128, 64),
             nn.ReLU6(),
+            nn.Linear(first_layer_dim, mid_layer_dim),
+            nn.ReLU6(),
 #             nn.Linear(64, 16),
 #             nn.ReLU6(),
-            nn.Linear(first_layer_dim, code_dim),
+            
+            nn.Linear(mid_layer_dim, code_dim),
         )
 
         # Decoder
         self.decoder = nn.Sequential(
-            nn.Linear(code_dim, first_layer_dim),
+            nn.Linear(code_dim, mid_layer_dim),
             nn.ReLU6(),
 #             nn.Linear(16, 64),
 #             nn.ReLU6(),
 #             nn.Linear(64, 128),
 #             nn.Tanh(),
+            nn.Linear(mid_layer_dim, first_layer_dim),
+            nn.ReLU6(),
             nn.Linear(first_layer_dim, data_dim),
 #             nn.Sigmoid()
         )
@@ -91,6 +98,8 @@ class AE(nn.Module):
 #         reconstructed = torch.relu(activation)
 #         return reconstructed
 
+
+
 # =========================================================================================================================================
 
 def training(train_dataset, valid_dataset, epochs, input_length, code_dim, first_layer_dim):
@@ -107,10 +116,12 @@ def training(train_dataset, valid_dataset, epochs, input_length, code_dim, first
 
     # create an optimizer object
     # Adam optimizer with learning rate 1e-3
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-6)
     loss_list = []
     # mean-squared error loss
     criterion = nn.MSELoss()
+#     criterion = weighted_MSELoss()
+    
 #     for early stopping
     valid_error = np.inf
     res_ae = None
@@ -122,13 +133,15 @@ def training(train_dataset, valid_dataset, epochs, input_length, code_dim, first
             
             code, outputs = model(x.float())
             train_loss = criterion(outputs, x.float())
+#             train_loss = weighted_MSELoss(outputs, x.float(), weight)
+            
             train_loss.backward()
             optimizer.step()
         
 #             loss += train_loss.item()
 #         loss = loss / len(train_data)
 #         print("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, epochs, loss)) 
-        # print('[{}/{}] Loss:'.format(epoch+1, epochs), train_loss.item())
+        print('[{}/{}] Loss:'.format(epoch+1, epochs), train_loss.item())
 #         loss_list.append(train_loss.item())
         cur_valid_err = test_err(model, valid_data)
         if cur_valid_err >= valid_error:
@@ -141,7 +154,7 @@ def training(train_dataset, valid_dataset, epochs, input_length, code_dim, first
             res_ae = model
             loss_list.append(train_loss.item())
 #             res_loss = loss_list
-    return res_ae, loss_list 
+    return res_ae, loss_list
 
 # compute test error of a given autoencoder 
 def test_err(autoencoder, data_test):
@@ -157,7 +170,7 @@ def test_err(autoencoder, data_test):
         res.append(test_loss.item())
 #         counter += batch_size
     return np.mean(res)
-
+    
 # Save
 def save_autoencoder(model):
     torch.save(model, 'autoencoder.pth')
