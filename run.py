@@ -78,7 +78,5 @@ if __name__ == '__main__':
 	# print_weight(w3)
 	ae7, w7, w7_avg,loss7, test7, test7_w = sudo_algo2.multi_weight(mix_raw_stack_43, 7, 10, 4, 128, 0.05, 50)
 	print_weight(w7)
-	print_weight(test7_w)
-	print(loss7)
 	# ae_d, w_d, wd_avg,loss_d, test_d = sudo_algo2.multi_weight(mix_raw_stack_disk, 9, 10, 5, 128, 0.05)
 	# print_weight(w_d)
