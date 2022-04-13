@@ -16,8 +16,8 @@ def get_diff(autoencoder, dataset):
         x = x.to(device)
         code, output = autoencoder(x.float())
         temp = output.detach().numpy() - x.numpy()
-        temp_norm = np.linalg.norm(temp, 2, axis=0)
-#         temp_norm = np.linalg.norm(temp, 2, axis=0)**2
+        # temp_norm = np.linalg.norm(temp, 2, axis=0)
+        temp_norm = np.linalg.norm(temp, 2, axis=0)**2
 #         print(temp_norm.shape)
         if res is None:
             res = temp_norm
@@ -64,7 +64,7 @@ def reweight_data(data, w):
 
 # def construct_dataset(data):
     
-def multi_weight(data, d, epoch, cod_dim, first_layer_dim, step_size, num_round):
+def multi_weight_init(data, d, epoch, cod_dim, first_layer_dim, step_size, num_round, init_weight):
 #     inputs = ['data-dim', 'max epoch', 'code-dim', 'first-layer-dim: ', 'step-size']
     print('training with ' + 'data-dim: ' + str(d) + 'max epoch: ' + str(epoch) + 
          'code-dim: ' + str(cod_dim) + 'first-layer-dim: ' + str( first_layer_dim) + 'step-size: ' + str(step_size))
@@ -76,16 +76,16 @@ def multi_weight(data, d, epoch, cod_dim, first_layer_dim, step_size, num_round)
 
 
 
-#     cur_weight = np.ones(d) * (1/d)
+    # cur_weight = np.ones(d) * (1/d)
     
 #     cur_weight = np.array([0.001]*14 + [0.09/6]*6)
 #     cur_weight = np.array([0.9] + [0.1/(d - 1)] * (d - 1))
     
 #     i = np.random.randint(0, d)
-    i = 0
-    cur_weight = np.array([0.91/(d- 1)]*d)
-    cur_weight[i] = 0.09
-    
+    # i = 0
+    # cur_weight = np.array([0.1/(d- 1)]*d)
+    # cur_weight[i] = 0.9
+    cur_weight = init_weight
     
     cur_input = reweight_data(data, cur_weight)
     cur_ae = None
@@ -143,7 +143,18 @@ def multi_weight(data, d, epoch, cod_dim, first_layer_dim, step_size, num_round)
 #     print(test_error)   
 #     print("average_weight is")
 #     print(1/total_round * (average_weight))
-    print(test_w)
+    # print(test_w)
     return cur_ae, cur_weight,1/total_round * average_weight, loss, test_error, test_w
+ 
+def multi_weight(data, d, epoch, cod_dim, first_layer_dim, step_size, num_round):
+    weight = np.ones(d) * (1/d)
     
+        # weight = np.array([0.001]*14 + [0.09/6]*6)
+#     weight = np.array([0.9] + [0.1/(d - 1)] * (d - 1))
     
+#     i = np.random.randint(0, d)
+    # i = 0
+    # weight = np.array([0.1/(d- 1)]*d)
+    # weight[i] = 0.9
+    return multi_weight_init(data, d, epoch, cod_dim, first_layer_dim, step_size, num_round, weight)
+
