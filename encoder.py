@@ -158,7 +158,9 @@ def training(train_dataset, valid_dataset, epochs, input_length, code_dim, first
 
 def weighted_MSELoss(output, target, weight):
     weight_tensor = torch.tensor(weight)
-    return torch.mean(weight_tensor * (output - target) ** 2)
+    # temp = (1/batch_size) * (output - target) ** 2
+    # print(torch.sum(temp, dim = 0).size())
+    return (1/batch_size) * torch.sum(weight_tensor *  (output - target) ** 2)
 
 
 def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, code_dim, first_layer_dim, weight):
@@ -202,7 +204,7 @@ def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, co
 #         print("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, epochs, loss)) 
         print('[{}/{}] Loss:'.format(epoch+1, epochs), train_loss.item())
 #         loss_list.append(train_loss.item())
-        cur_valid_err = test_err(model, valid_data)
+        cur_valid_err = test_err_weighted(model, valid_data, weight)
         if cur_valid_err >= valid_error:
             break
         else:
@@ -233,6 +235,19 @@ def test_err(autoencoder, data_test):
 #         counter += batch_size
     return np.mean(res)
 
+def test_err_weighted(autoencoder, data_test, weight):
+    # criterion = nn.MSELoss()
+    res = []
+#     counter = 0
+    for x in data_test:
+#         if counter <= r:
+        x = x.to(device)
+        code, outputs = autoencoder(x.float())
+        test_loss = weighted_MSELoss(outputs, x.float(), weight)
+#         print(type(test_loss))
+        res.append(test_loss.item())
+#         counter += batch_size
+    return np.mean(res)
 
 # Save
 def save_autoencoder(model):

@@ -245,7 +245,7 @@ def stack_polynoimal(list_file, list_degree, list_num, num_sample, num_cell):
 # normalized each row (gene) so that it has mean 0 and var 1
 def normalized_row(X):
 	mean = np.mean(X, axis = 1)
-	var = np.var(X, axis = 1)
+	var = np.sqrt(np.var(X, axis = 1))
 
 	(m, n) = X.shape
 	if (len(mean) != m):

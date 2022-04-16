@@ -43,6 +43,7 @@ def update_weight(autoencoder, data, prev_weight, step_size):
 #     initalize result to be a vector of 1
 #     res = [1]*l
     diff_vec = get_diff(autoencoder, dataset) * (1/len(data))
+    # diff_vec = get_diff(autoencoder, dataset)
 
     print(diff_vec)
     res = prev_weight*np.exp(-1 * step_size * diff_vec)

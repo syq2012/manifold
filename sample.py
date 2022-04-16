@@ -31,19 +31,41 @@ def sample_torus(n, R, r):
 		theta = angles[0][i]
 		phi = angles[1][i]
 		temp = R + r * np.cos(theta)
-		res[:, i] = np.array([temp * np.cos(phi), temp * np.sin(phi), r * np.sin(theta)])
+		A = np.array([temp * np.cos(phi), temp * np.sin(phi), r * np.sin(theta)])
 	return res
+
+# sample n samples from gaussian with mean \sim unif([0, 1]^d) and covariance = identity  
+def sample_gaussian_mean(n, d, mean):
+	covar = np.identity(d)
+	# print(mean)
+	res = np.random.multivariate_normal(mean, covar, n)
+	return res.T
+
+def sample_gaussian(n, d):
+	mean = np.random.rand(d)
+	return sample_gaussian_mean(n, d, mean)
+
+def sample_gaussian_0mean(n, d):
+	mean = np.zeros(d)
+	return sample_gaussian_mean(n,d,mean)
+
 # return matrix where each term in the matrix is sampled uniformly from [0, 1]
 def sample_noise(m, n):
 	return np.random.rand(m, n)
 
+
+def sample_gaussian_noise(d, n):
+	return sample_gaussian_0mean(n, d)
 # =========================================================================================================================================
 
 def get_subset(d, k):
+	# add empty set
 	res = [()]
+	# find base
 	base = [i for i in range(d)]
-	for i in range(k):
-		res += list(itertools.combinations(base, i + 1))
+	for i in range(k):		
+		# res += list(itertools.combinations(base, i + 1))
+		res += list(itertools.combinations_with_replacement(base, i + 1))
 	return res
 
 
@@ -59,13 +81,18 @@ def lift(x, k):
 
 # generate eval of x on d random polynomials
 def random_polymonial(data, k, d):
-	lift_x = [lift(np.array(x), k) for x in data]
-	(m, n) = lift_x[0].shape
+	# lift_x = [lift(np.array(x), k) for x in data]
+	# (m, n) = lift_x[0].shape
 	coeff = np.random.rand(d, m)
-	res = [coeff @ x for x in lift_x]
+	# res = [coeff @ x for x in lift_x]
+	eval_polynomial(data, k, d, coeff)
 	return lift_x, res, coeff
 
-
+def eval_polynomial(data, k, d, coeff):
+	lift_x = [lift(np.array(x), k) for x in data]
+	(m, n) = lift_x[0].shape
+	res = [coeff @ x for x in lift_x]
+	return lift_x, res
 	# lift_x = lift(x, k)
 	# (m, n) = lift_x.shape
 	# # coeff = np.random.rand(d, m)
