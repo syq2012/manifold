@@ -5,6 +5,7 @@ from numpy import loadtxt
 from io import StringIO
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
+import os.path
 
 from torch.utils.data import TensorDataset, DataLoader
 
@@ -34,7 +35,7 @@ def gen_sphereical(num_sample, num_cell,  k):
 
 # generate torus of outer radius R and inner radius r
 def gen_torus(num_sample, num_cell_toru, R, r):
-	name = 'torus' + '_'  + str(num_cell_toru) + '_'  + str(num_sample) + '_'  +str(R) + '_'  +str(r)
+	name = 'torus' + '_'  + str(num_sample)  + '_'  + str(num_cell_toru) + '_'  +str(R) + '_'  +str(r)
 	write(lambda: sample.sample_torus(num_cell_toru, R, r), num_sample, name)
 
 # generate disk of random radius
@@ -45,6 +46,19 @@ def gen_disk( num_sample, num_cell):
 def gen_noise(num_sample, m, n):
 	name = 'uniformnoise' + '_' + str(num_sample) + '_' + str(m) + '_' + str(n)
 	write(lambda: sample.sample_noise(m, n), num_sample, name)
+
+def gen_gaussain(num_sample, num_cell, dimension):
+	name = 'gaussian' + '_' + str(num_sample) + '_' + str(num_cell) + '_' + str(dimension)
+	write(lambda: sample.sample_gaussian(num_cell, dimension), num_sample, name)
+
+def gen_gaussian_noise(num_sample, num_cell, dimension):
+	name = 'gaussiannoise' + '_' + str(num_sample) + '_' + str(num_cell) + '_' + str(dimension)
+	write(lambda: sample.sample_gaussian_noise(dimension, num_cell), num_sample, name)
+
+def gen_gaussian_0mean(num_sample, num_cell, dimension):
+	name = 'gaussian_0mean' + '_' + str(num_sample) + '_' + str(num_cell) + '_' + str(dimension)
+	write(lambda: sample.sample_gaussian_0mean(num_cell, dimension), num_sample, name)
+
 
 
 def gen_sphere_with_noise(num_sample, num_cell, k, noise_dimension, noise_intensity):
@@ -61,6 +75,8 @@ def gen_disk_with_noise(num_sample, num_cell, noise_dimension, noise_intensity):
 	lst = ['diskwithnoise', 'numsample', str(num_sample), 'num_cell', str(num_cell), 'noise_dim', str(noise_dimension), 'noise_intensity', str(noise_intensity)]
 	name = '_'.join(lst)
 	write(lambda: sample.pad_noise(lambda:sample.sample_disk(num_cell), noise_dimension, noise_intensity, 1), num_sample, name)
+
+
 
 # generate data valuated on d2 random polynomial of degree k
 # original data of dimension d 
@@ -110,6 +126,7 @@ def combine_dataset(f1, f2, noise):
         temp2 = [np.pad(x, ((dim1, 0), (0, 0)), 'constant') for x in raw2]
         res = [np.concatenate((t1, t1), axis = 1) for t1, t2 in zip(temp1, temp2)]
         return res, rawn
+
 def stack_dataset(f1, f2, noise):
     l1 = f1.split('_')
     l2 = f2.split('_')
@@ -130,6 +147,112 @@ def stack_dataset(f1, f2, noise):
 #         temp2 = [np.pad(x, ((dim1, 0), (0, 0)), 'constant') for x in raw2]
         res = [np.concatenate((t1, t2), axis = 0) for t1, t2 in zip(raw1, raw2)]
         return res, rawn
+
+def stack_dataset_dim(f1, f2, noise, d1, d2):
+    l1 = f1.split('_')
+    l2 = f2.split('_')
+    l3 = noise.split('_')
+    
+#     dim1 = get_dim(l1)
+#     dim2 = get_dim(l2)
+    
+    if (l1[1] != l2[1]) or (l1[2] != l2[2]) or (int(l3[2]) != d1 + d2) or l3[1] != l1[1]:
+        print("data number not matched")
+        return
+    else:        
+        raw1 = dataset_gen.read(f1 + '.csv', d1, int(l1[2]))  
+        raw2 = dataset_gen.read(f2+ '.csv', d2, int(l2[2]))
+        rawn = dataset_gen.read(noise+ '.csv', int(l3[2]), int(l3[3]))
+        
+#         temp1 = [np.pad(x, ((0, dim2), (0, 0)), 'constant') for x in raw1]
+#         temp2 = [np.pad(x, ((dim1, 0), (0, 0)), 'constant') for x in raw2]
+        res = [np.concatenate((t1, t2), axis = 0) for t1, t2 in zip(raw1, raw2)]
+        return res, rawn
+    
+# # generate and load dataset for (num_i) polynomial of degree i  and (num_j) polynomial of degree j
+# def stack_data_ij(i, j, num_i, num_j):
+#     f1 = 'sphere_1000_1000_4_num_poly_' + str(num_i) + '_degree_' + str(i)
+#     f2 = 'torus_1000_1000_1_0.5_num_poly_' + str(num_j) +'_degree_' + str(j)
+#     f3 = 'uniformnoise_1000_'+str(num_i + num_j)+'_1000'
+#     print(f3)
+#     if not os.path.isfile(f3 + '.csv'):
+# #         print('here')
+#         dataset_gen.gen_noise(1000, num_i + num_j, 1000)
+#     if not os.path.isfile(f2 + '.csv'):
+# #         print('here')
+#         dataset_gen.gen_polynomial_data('torus_1000_1000_1_0.5', 3, 1000, j, num_i)
+#     if not os.path.isfile(f1 + '.csv'):
+#         dataset_gen.gen_polynomial_data('sphere_1000_1000_4', 4, 1000, i, num_j)
+#     temp, rawn = stack_dataset_dim(f1, f2, f3, num_i, num_j)
+# #     res = np.add(temp, np.multiply(rawn, noise_scale))
+#     return temp, rawn
+
+def get_dim(f):
+	l = f.split('_')
+	if l[0] == 'torus':
+		return 3
+	elif l[0] == 'disk':
+		return 2
+	elif l[0] == 'uniformnoise':
+		return l[-2]
+	else :
+		return l[-1]
+
+def get_num_sample(f):
+	l = f.split('_')
+	return l[1]
+
+def stack_list(list_file, list_data_dim, num_cell):
+	
+	temp = [read(list_file[i] + '.csv', list_data_dim[i], num_cell) for i in range(len(list_file))]
+	# for each matrix, normalized each row
+	raw = [[normalized_row(np.array(r)) for r in cur] for cur in temp]
+
+	# stack those matrices ontop of each other 
+	res = [np.concatenate([r[i] for r in raw], axis = 0) for i in range(len(raw[0]))]
+
+	return res
+
+
+def stack_polynoimal(list_file, list_degree, list_num, num_sample, num_cell):
+	l = len(list_file)
+
+	if len(list_degree) != l or len(list_num) != l:
+		print('input length not matched')
+
+	noise_dim = np.sum(list_num)
+	noise_name = 'gaussiannoise_' + str(num_sample) + '_' + str(num_cell) + '_'+str(noise_dim)
+	if not os.path.isfile(noise_name + '.csv'):
+#         print('here')
+		# gen_noise(num_sample, noise_dim, num_cell)
+		gen_gaussian_noise(num_sample, num_cell, noise_dim)
+
+	list_name = [list_file[i] + '_num_poly_' + str(list_num[i]) + '_degree_' + str(list_degree[i]) for i in range(l)]
+	
+	# if file does not exist, generate one
+	for i in range(l):
+		if not os.path.isfile(list_name[i] + '.csv'):
+			print('missing' + list_name[i])
+			cur_file = list_file[i]
+			gen_polynomial_data(cur_file, int(get_dim(cur_file)), num_sample, list_degree[i], list_num[i])
+
+	data = stack_list(list_name, list_num, num_cell)
+	noise = read(noise_name + '.csv', noise_dim, num_cell)
+	return data, noise
+
+
+# each column of input matrix is a cell/data
+# normalized each row (gene) so that it has mean 0 and var 1
+def normalized_row(X):
+	mean = np.mean(X, axis = 1)
+	var = np.var(X, axis = 1)
+
+	(m, n) = X.shape
+	if (len(mean) != m):
+		print('wrong length')
+
+	temp = X - mean[:, None]
+	return temp / var[:, None]
 
 # =========================================================================================================================================
 # construct dataset for pytorch 
