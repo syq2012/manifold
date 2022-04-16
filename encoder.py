@@ -156,6 +156,68 @@ def training(train_dataset, valid_dataset, epochs, input_length, code_dim, first
 #             res_loss = loss_list
     return res_ae, loss_list
 
+def weighted_MSELoss(output, target, weight):
+    weight_tensor = torch.tensor(weight)
+    return torch.mean(weight_tensor * (output - target) ** 2)
+
+
+def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, code_dim, first_layer_dim, weight):
+    #  use gpu if available
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    #  get dataloader 
+    train_data = torch.utils.data.DataLoader(train_dataset, batch_size, shuffle=True)
+    valid_data = torch.utils.data.DataLoader(valid_dataset, batch_size, shuffle=True)
+    
+    # create a model from `AE` autoencoder class
+    # load it to the specified device, either gpu or cpu
+    model = AE(input_shape=input_length, code_dim = code_dim, first_layer_dim = first_layer_dim).to(device)
+
+    # create an optimizer object
+    # Adam optimizer with learning rate 1e-3
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-6)
+    loss_list = []
+    # mean-squared error loss
+#     criterion = nn.MSELoss()
+#     criterion = weighted_MSELoss()
+    
+#     for early stopping
+    valid_error = np.inf
+    res_ae = None
+#     res_loss = None
+    for epoch in range(epochs):
+#         loss = 0
+        for x in train_data:
+            x = x.to(device)
+            
+            code, outputs = model(x.float())
+#             train_loss = criterion(outputs, x.float())
+            train_loss = weighted_MSELoss(outputs, x.float(), weight)
+            
+            train_loss.backward()
+            optimizer.step()
+        
+#             loss += train_loss.item()
+#         loss = loss / len(train_data)
+#         print("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, epochs, loss)) 
+        print('[{}/{}] Loss:'.format(epoch+1, epochs), train_loss.item())
+#         loss_list.append(train_loss.item())
+        cur_valid_err = test_err(model, valid_data)
+        if cur_valid_err >= valid_error:
+            break
+        else:
+            valid_error = cur_valid_err
+#             print(test_err(model, valid_data))
+#             if res_ae != None:
+#                 print(test_err(res_ae, valid_data))
+            res_ae = model
+            loss_list.append(train_loss.item())
+#             res_loss = loss_list
+    return res_ae, loss_list
+
+# =========================================================================================================================================
+
+
 # compute test error of a given autoencoder 
 def test_err(autoencoder, data_test):
     criterion = nn.MSELoss()
@@ -170,7 +232,8 @@ def test_err(autoencoder, data_test):
         res.append(test_loss.item())
 #         counter += batch_size
     return np.mean(res)
-    
+
+
 # Save
 def save_autoencoder(model):
     torch.save(model, 'autoencoder.pth')

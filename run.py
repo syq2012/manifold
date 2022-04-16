@@ -1,7 +1,12 @@
 import sudo_algo2
 import dataset_gen
 import numpy as np
+import time
 import os.path
+import matplotlib.pyplot as plt; plt.rcParams['figure.dpi'] = 200
+import pylab as pl
+from IPython import display
+
 
 def print_weight(w):
 	print("weight is " + str(w))
@@ -16,7 +21,7 @@ def get_average(num_round, round_size, train_data, data_dim, max_epoch, code_siz
 #     add dynamic plot as data generates
     plt.ion()
     fig=plt.figure()
-    plt.axis([0,data_dim,0,0.2])
+    # plt.axis([0,data_dim,0,0.007])
     x = [i for i in range(data_dim)]
 #  plt.figure()
     
@@ -53,7 +58,7 @@ if __name__ == '__main__':
 		if not os.path.isfile(l + '.csv'):
 			print('missing data file' + l + 'csv')
 
-	stack_data, rawns = dataset_gen.stack_dataset('sphere_1000_1000_10', 'torus_1000_1000_2_1', 'uniformnoise_1000_13_1000')
+	stack_data, rawns = dataset_gen.stack_dataset('sphere_1000_1000_10', 'torus_1000_1000_1_0.5', 'uniformnoise_1000_13_1000')
 	stack_data_43, rawn7 = dataset_gen.stack_dataset('sphere_1000_1000_4', 'torus_1000_1000_1_0.5', 'uniformnoise_1000_7_1000')
 
 	name = "disk_1000_1000"
@@ -72,11 +77,13 @@ if __name__ == '__main__':
 
 
 
-	# ae, w, w_avg, loss, test = sudo_algo2.multi_weight(mix_raw_stack, 13, 10, 10, 128, 0.05)
-	# print_weight(w)
+	ae, w, w_avg, loss, test, test_w = sudo_algo2.multi_weight(mix_raw_stack, 13, 10, 4, 128, 0.05, 20)
+	print_weight(w)
 	# ae3, w3, w3_avg,loss3, test3 = sudo_algo2.multi_weight(mix_raw_stack, 13, 10, 3, 128, 0.05)
 	# print_weight(w3)
-	ae7, w7, w7_avg,loss7, test7, test7_w = sudo_algo2.multi_weight(mix_raw_stack_43, 7, 10, 4, 128, 0.05, 50)
-	print_weight(w7)
+	# ae7, w7, w7_avg,loss7, test7, test7_w = sudo_algo2.multi_weight(mix_raw_stack_43, 7, 10, 4, 128, 0.05, 20)
+	# # print_weight(w7)
+	# print('average weight is')
+	# print(w7_avg)
 	# ae_d, w_d, wd_avg,loss_d, test_d = sudo_algo2.multi_weight(mix_raw_stack_disk, 9, 10, 5, 128, 0.05)
 	# print_weight(w_d)
