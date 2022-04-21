@@ -102,6 +102,9 @@ class AE(nn.Module):
 
 # =========================================================================================================================================
 
+def MSE_transpose(output, target):
+    return (1/batch_size) * torch.sum((output - target)**2)
+
 def training(train_dataset, valid_dataset, epochs, input_length, code_dim, first_layer_dim):
     #  use gpu if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -156,14 +159,17 @@ def training(train_dataset, valid_dataset, epochs, input_length, code_dim, first
 #             res_loss = loss_list
     return res_ae, loss_list
 
-def weighted_MSELoss(output, target, weight):
+
+def weighted_MSELoss(output, target, weight, weight_cell):
     weight_tensor = torch.tensor(weight)
     # temp = (1/batch_size) * (output - target) ** 2
     # print(torch.sum(temp, dim = 0).size())
-    return (1/batch_size) * torch.sum(weight_tensor *  (output - target) ** 2)
+    (m, n) = output.size()
+    # return torch.sum(torch.tensor(weight_cell)[:, None] * (weight_tensor *  (output - target) ** 2))
+    return (1/m) * torch.sum(weight_tensor *  (output - target) ** 2)
 
 
-def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, code_dim, first_layer_dim, weight):
+def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, code_dim, first_layer_dim, weight, weight_cell):
     #  use gpu if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -177,7 +183,7 @@ def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, co
 
     # create an optimizer object
     # Adam optimizer with learning rate 1e-3
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-6)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
     loss_list = []
     # mean-squared error loss
 #     criterion = nn.MSELoss()
@@ -189,12 +195,12 @@ def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, co
 #     res_loss = None
     for epoch in range(epochs):
 #         loss = 0
-        for x in train_data:
+        for x, index in train_data:
             x = x.to(device)
-            
+            # print(index)
             code, outputs = model(x.float())
 #             train_loss = criterion(outputs, x.float())
-            train_loss = weighted_MSELoss(outputs, x.float(), weight)
+            train_loss = weighted_MSELoss(outputs, x.float(), weight, weight_cell[index])
             
             train_loss.backward()
             optimizer.step()
@@ -204,7 +210,7 @@ def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, co
 #         print("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, epochs, loss)) 
         print('[{}/{}] Loss:'.format(epoch+1, epochs), train_loss.item())
 #         loss_list.append(train_loss.item())
-        cur_valid_err = test_err_weighted(model, valid_data, weight)
+        cur_valid_err = test_err_weighted(model, valid_data, weight, weight_cell)
         if cur_valid_err >= valid_error:
             break
         else:
@@ -235,15 +241,15 @@ def test_err(autoencoder, data_test):
 #         counter += batch_size
     return np.mean(res)
 
-def test_err_weighted(autoencoder, data_test, weight):
+def test_err_weighted(autoencoder, data_test, weight, weight_cell):
     # criterion = nn.MSELoss()
     res = []
 #     counter = 0
-    for x in data_test:
+    for x, index in data_test:
 #         if counter <= r:
         x = x.to(device)
         code, outputs = autoencoder(x.float())
-        test_loss = weighted_MSELoss(outputs, x.float(), weight)
+        test_loss = weighted_MSELoss(outputs, x.float(), weight, weight_cell[index])
 #         print(type(test_loss))
         res.append(test_loss.item())
 #         counter += batch_size

@@ -1,13 +1,12 @@
 import encoder
 import numpy as np
 import torch
-# import torch.nn as nn
+import torch.nn as nn
 import torch.utils.data as data
 
 import matplotlib.pyplot as plt; plt.rcParams['figure.dpi'] = 200
 import pylab as pl
 from IPython import display
-import matplotlib.pyplot as plt;
 import time 
 
 # epochs = 10
@@ -18,7 +17,7 @@ device= 'cpu'
 # multiplicative weight update
 def get_diff(autoencoder, dataset):
     res = None
-    for x in dataset:
+    for x, index in dataset:
         x = x.to(device)
         code, output = autoencoder(x.float())
         temp = output.detach().numpy() - x.numpy()
@@ -32,7 +31,7 @@ def get_diff(autoencoder, dataset):
     # match weigthed MSE loss
     # res = np.sqrt(res) 
 #     print(res)
-    return res
+    return 2 * res
             
         
 # input: current autoencoder and the pytorch dataset to evaulate on
@@ -45,23 +44,50 @@ def update_weight(autoencoder, data, prev_weight, step_size):
     diff_vec = get_diff(autoencoder, dataset) * (1/len(data))
     # diff_vec = get_diff(autoencoder, dataset)
 
-    print(diff_vec)
-    res = prev_weight*np.exp(-1 * step_size * diff_vec)
+    # print(diff_vec)
+    res = prev_weight*np.exp(-1  * step_size * diff_vec)
+    # print(res)
 #     res[res > 1/3] = 1/3
     total = np.sum(res)
 #     print(res)
-    print(total)
+    # print(total)
 #     print(res[1]/total)
 
-# smoothing
-#     temp = res/total.tolist()
-#     cap = (1/3) * 1.1
-#     index = [temp > cap] 
-#     temp[index] = cap
-#     result = temp * (1 - cap * np.sum(index))/ (np.sum(temp) - cap * np.sum(index))
-#     result[index] = cap
+
+    # res[res > 1] = 1
+    # total = np.sum(res)
+
     result = res/total
     return result
+
+# =========================================================================================================================================
+
+def update_weight_MSE(autoencoder, data, prev_weight, step_size):
+    dataset = torch.utils.data.DataLoader(data, batch_size, shuffle=True)
+    var_weight = torch.tensor(prev_weight, requires_grad = True)
+    d = len(prev_weight)
+    criterion = nn.MSELoss()
+    
+
+    result  = np.zeros(d)
+    for x in dataset:
+        m, d = x.shape
+        weighted_x = var_weight * x
+        code, output = autoencoder(weighted_x.float())
+        cur_loss = criterion(output, weighted_x.float())
+        grad = torch.autograd.grad(cur_loss, var_weight)
+        # print(result)
+        result += grad[0].detach().numpy() 
+
+    exps =  result
+    res = prev_weight * np.exp((-1) * step_size * exps)
+    # print(res)
+    total = np.sum(res)
+    return res/total
+        # grad = [torch.autograd.functional.jacobian(lambda x: autoencoder(x.float())[1], weighted_x)]
+        # diff_grad = [np.dot((np.array(grad[i]) - identity), np.diag(x[i, :].numpy())) for i in range(m)]
+        # diff_output = 
+             
 
 # =========================================================================================================================================
 
@@ -72,6 +98,9 @@ def relative_entropy(p, q):
 
 def reweight_data(data, w):
     return data * w[:, None]
+
+def reweight_data_cell(data, w):
+    return data * w[None, :]
 
 # def termination_crit(weight, epsilon):
 #     return np.sum([(x < epsilon) or (x > 1 - epsilon) for x in weight])
@@ -87,21 +116,14 @@ def multi_weight_init(data, d, epoch, cod_dim, first_layer_dim, step_size, num_r
 #     temp_valid = get_dataset_from_list(data, 100, 150)
 #     test_data= get_dataset_from_list(data, 200, 500)
 #     init weight 
+    plt.ion()
+    fig=plt.figure()
+    # plt.axis([0,d,0,2/d])
+    x = [i for i in range(d)]
 
-
-
-    # cur_weight = np.ones(d) * (1/d)
-    
-#     cur_weight = np.array([0.001]*14 + [0.09/6]*6)
-#     cur_weight = np.array([0.9] + [0.1/(d - 1)] * (d - 1))
-    
-#     i = np.random.randint(0, d)
-    # i = 0
-    # cur_weight = np.array([0.1/(d- 1)]*d)
-    # cur_weight[i] = 0.9
     cur_weight = init_weight
     
-    cur_input = reweight_data(data, cur_weight)
+    # cur_input = reweight_data(data, cur_weight)
     cur_ae = None
     loss = []
     test_error = []
@@ -119,12 +141,24 @@ def multi_weight_init(data, d, epoch, cod_dim, first_layer_dim, step_size, num_r
 #         train on reweighted data
 #         cur_data = reweight_data(temp_data, cur_weight)
 #         cur_valid = reweight_data(temp_valid, cur_weight)
-        cur_data = encoder.get_dataset_from_list(cur_input, 0, 500)
-        cur_valid = encoder.get_dataset_from_list(cur_input, 500, 550)
+        index = np.mod(itr, 5)
+        index2 = np.mod(itr + 1, 5)
+        cur_train_input = reweight_data(data[index* 200:200*(index+ 1)], cur_weight)
+        cur_valid_input = reweight_data(data[index2 * 200: 50 + index2 * 200], cur_weight)
+        cur_test_input = reweight_data(data[50 + index2 * 200:100 + index2 * 200], cur_weight)
+
+        # cur_data = encoder.get_dataset_from_list(cur_input, index* 200, 200*(index+ 1))
+        # cur_valid = encoder.get_dataset_from_list(cur_input, index2 * 200, 50 + index2 * 200)
+        # cur_test = encoder.get_dataset_from_list(cur_input, 50 + index2 * 200, 100 + index2 * 200)
+
+        cur_data = encoder.get_dataset_from_list(cur_train_input, 0, len(cur_train_input))
+        cur_valid = encoder.get_dataset_from_list(cur_valid_input, 0, len(cur_valid_input))
+        cur_test = encoder.get_dataset_from_list(cur_test_input, 0, len(cur_test_input))
+        
         cur_ae, cur_loss = encoder.training(cur_data, cur_valid, epoch, d, cod_dim, first_layer_dim)
         
-        cur_test = encoder.get_dataset_from_list(cur_input, 600, 700)
-        cur_test_data = torch.utils.data.DataLoader(cur_test, batch_size, shuffle=True)
+        # cur_test = encoder.get_dataset_from_list(cur_input, 600, 700)
+        cur_test_data = torch.utils.data.DataLoader(cur_test, batch_size, shuffle=False)
         cur_test_error = encoder.test_err(cur_ae, cur_test_data)
         
         test_error.append(cur_test_error)
@@ -138,12 +172,18 @@ def multi_weight_init(data, d, epoch, cod_dim, first_layer_dim, step_size, num_r
 #             print(test_w)
             
 #         update weight
-        cur_weight = update_weight(cur_ae, cur_data, cur_weight, step_size)
+        cur_weight = update_weight_MSE(cur_ae, encoder.get_dataset_from_list(data,index* 200, 200*(index+ 1)), cur_weight, step_size)
+        # cur_weight[cur_weight < 1/d ] = 0
+        # cur_weight = (1/np.sum(cur_weight)) * cur_weight
+        pl.plot(x, cur_weight, 'o--') 
+        display.clear_output(wait=True)
+        display.display(pl.gcf())
+        time.sleep(1.0)
 #         cur_weight = np.round(cur_weight, decimals=3)
 #         cur_weight = cur_weight * (1/np.sum(cur_weight))
             
 #         cur_weight = cur_weight * 0.5
-        cur_input = reweight_data(data, cur_weight)
+        # cur_input = reweight_data(data, cur_weight)
         
 #         print(np.argsort(cur_weight)[-4:])
         
@@ -163,33 +203,24 @@ def multi_weight_init(data, d, epoch, cod_dim, first_layer_dim, step_size, num_r
 
 # def construct_dataset(data):
     
-def multi_weight_weightedMSE(data, d, epoch, cod_dim, first_layer_dim, step_size, num_round, init_weight):
+def multi_weight_weightedMSE(data, d, epoch, cod_dim, first_layer_dim, step_size, num_round, init_weight, init_weight_cell):
 #     inputs = ['data-dim', 'max epoch', 'code-dim', 'first-layer-dim: ', 'step-size']
     print('training with ' + 'data-dim: ' + str(d) + 'max epoch: ' + str(epoch) + 
          'code-dim: ' + str(cod_dim) + 'first-layer-dim: ' + str( first_layer_dim) + 'step-size: ' + str(step_size))
     
-#     temp_data = get_dataset_from_list(data, 0, 100)
-#     temp_valid = get_dataset_from_list(data, 100, 150)
-#     test_data= get_dataset_from_list(data, 200, 500)
-#     init weight 
-    cur_data = encoder.get_dataset_from_list(data, 0, 500)
-    cur_valid = encoder.get_dataset_from_list(data, 500, 550)
-    cur_test = encoder.get_dataset_from_list(data, 600, 700)
+
+    # cur_data = encoder.get_dataset_from_list(data, 0, 500)
+    # cur_valid = encoder.get_dataset_from_list(data, 500, 550)
+    # cur_test = encoder.get_dataset_from_list(data, 600, 700)
 
     #     add dynamic plot as data generates
     plt.ion()
     fig=plt.figure()
     # plt.axis([0,d,0,2/d])
     x = [i for i in range(d)]
-#     cur_weight = np.ones(d) * (1/d)
-    
-#     cur_weight = np.array([0.001]*14 + [0.09/6]*6)
-#     cur_weight = np.array([0.9] + [0.1/(d - 1)] * (d - 1))
-    
-#     i = np.random.randint(0, d)
     cur_weight = init_weight
-    
-#     cur_input = reweight_data(data, cur_weight)
+    cur_weight_cell = init_weight_cell
+    threshold = 1 / len(init_weight[init_weight > 0]) * (0.99)
     cur_ae = None
     loss = []
     test_error = []
@@ -205,14 +236,17 @@ def multi_weight_weightedMSE(data, d, epoch, cod_dim, first_layer_dim, step_size
     while (itr <= total_round):
         print(cur_weight)
 #         train on reweighted data
-#         cur_data = reweight_data(temp_data, cur_weight)
-#         cur_valid = reweight_data(temp_valid, cur_weight)
+        index = np.mod(itr, 5)
+        index2 = np.mod(itr + 1, 5)
+        cur_data = encoder.get_dataset_from_list(data, index* 200, 200*(index+ 1))
+        cur_valid = encoder.get_dataset_from_list(data, index2 * 200, 50 + index2 * 200)
+        cur_test = encoder.get_dataset_from_list(data, 50 + index2 * 200, 100 + index2 * 200)
         
-        cur_ae, cur_loss = encoder.training_weighted_MSE(cur_data, cur_valid, epoch, d, cod_dim, first_layer_dim, cur_weight)
+        cur_ae, cur_loss = encoder.training_weighted_MSE(cur_data, cur_valid, epoch, d, cod_dim, first_layer_dim, cur_weight, cur_weight_cell)
         
         
         cur_test_data = torch.utils.data.DataLoader(cur_test, batch_size, shuffle=True)
-        cur_test_error = encoder.test_err(cur_ae, cur_test_data)
+        cur_test_error = encoder.test_err_weighted(cur_ae, cur_test_data, cur_weight, cur_weight_cell)
         # print(cur_test_error)
         test_error.append(cur_test_error)
         average_weight += np.copy(cur_weight)
@@ -230,7 +264,10 @@ def multi_weight_weightedMSE(data, d, epoch, cod_dim, first_layer_dim, step_size
         
 #         update weight
         cur_weight = update_weight(cur_ae, cur_data, cur_weight, step_size)
-               
+
+        # if itr > 1:
+        # threshold = ((np.max(cur_weight) + np.min(cur_weight[cur_weight > 0]))/2) * (1 - 0.01*itr)
+        cur_weight = round(cur_weight, threshold)
 #         print(np.argsort(cur_weight)[-4:])
         
 #         print(np.max(cur_weight))
@@ -260,4 +297,29 @@ def multi_weight(data, d, epoch, cod_dim, first_layer_dim, step_size, num_round)
     # weight = np.array([0.1/(d- 1)]*d)
     # weight[i] = 0.9
     return multi_weight_init(data, d, epoch, cod_dim, first_layer_dim, step_size, num_round, weight)
+
+# =========================================================================================================================================
+
+def round(w, threshold):
+    # r = np.max(w) - np.min(w[w > 0])
+    # threshold = 1/len(w[w > 0]) - r * 0.1
+    w[w < threshold] = 0
+    return w/np.sum(w)
+
+
+def find_subset(w):
+    threshold = np.max(w)*0.95
+    return np.array([w > threshold], dtype = int)
+
+def True_positive(w, true_w):
+    real = np.sum(true_w)
+    computed = np.sum(w*true_w)
+#     print(w*true_w)
+    return computed/real
+
+def False_positive(w, true_w):
+    n = len(w)
+    complement = np.ones(n) - true_w
+    return True_positive(w, complement)
+
 

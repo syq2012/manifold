@@ -195,7 +195,9 @@ def get_dim(f):
 		return 2
 	elif l[0] == 'uniformnoise':
 		return l[-2]
-	else :
+	elif l[-1] == 'padweights':
+		return int(l[-2]) + 1
+	else:
 		return l[-1]
 
 def get_num_sample(f):
@@ -220,12 +222,12 @@ def stack_polynoimal(list_file, list_degree, list_num, num_sample, num_cell):
 	if len(list_degree) != l or len(list_num) != l:
 		print('input length not matched')
 
-	noise_dim = np.sum(list_num)
-	noise_name = 'gaussiannoise_' + str(num_sample) + '_' + str(num_cell) + '_'+str(noise_dim)
-	if not os.path.isfile(noise_name + '.csv'):
-#         print('here')
-		# gen_noise(num_sample, noise_dim, num_cell)
-		gen_gaussian_noise(num_sample, num_cell, noise_dim)
+# 	noise_dim = np.sum(list_num)
+# 	noise_name = 'gaussiannoise_' + str(num_sample) + '_' + str(num_cell) + '_'+str(noise_dim)
+# 	if not os.path.isfile(noise_name + '.csv'):
+# #         print('here')
+# 		# gen_noise(num_sample, noise_dim, num_cell)
+# 		gen_gaussian_noise(num_sample, num_cell, noise_dim)
 
 	list_name = [list_file[i] + '_num_poly_' + str(list_num[i]) + '_degree_' + str(list_degree[i]) for i in range(l)]
 	
@@ -237,7 +239,8 @@ def stack_polynoimal(list_file, list_degree, list_num, num_sample, num_cell):
 			gen_polynomial_data(cur_file, int(get_dim(cur_file)), num_sample, list_degree[i], list_num[i])
 
 	data = stack_list(list_name, list_num, num_cell)
-	noise = read(noise_name + '.csv', noise_dim, num_cell)
+	# noise = read(noise_name + '.csv', noise_dim, num_cell)
+	noise = []
 	return data, noise
 
 
@@ -252,7 +255,23 @@ def normalized_row(X):
 		print('wrong length')
 
 	temp = X - mean[:, None]
-	return temp / var[:, None]
+	return temp / (var[:, None])
+
+def standard_gaussian_pdf(X):
+	norm = np.linalg.norm(X, 2, axis = 0)**2
+	temp = np.exp(- (1/2) * norm)
+	return 1 / (np.sqrt(2 * np.pi)) * temp
+
+def pad_guassian_weight(file, dim, num_cell):
+	samples = read(file + '.csv', dim, num_cell)
+	padded_samples = [np.concatenate((cur, [standard_gaussian_pdf(cur)]), axis = 0).flatten() for cur in samples]
+
+	new_name = file + '_padweights.csv'
+	savetxt(new_name, padded_samples, delimiter= ',')
+
+# =========================================================================================================================================
+def pad_cell(list_data1, list_data2):
+	return [np.concatenate((list_data1[i], list_data2[i]), axis = 1) for i in range(len(list_data1))]
 
 # =========================================================================================================================================
 # construct dataset for pytorch 
@@ -267,7 +286,7 @@ class cellDataset(torch.utils.data.Dataset):
 	def __len__(self):
 		return len(self.data)
 	def __getitem__(self, index):
-		return self.data[index]
+		return self.data[index], index
 
 
 def construct_cell_dataset(data):

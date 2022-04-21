@@ -51,6 +51,22 @@ def get_average(num_round, round_size, train_data, data_dim, max_epoch, code_siz
     return res_avg, res, test_avg, test
 
 
+def output_err(data, noise, data_dim):
+    noise_scales = np.array([i for i in range(10)]) * (1/20)
+    output = []
+    init_weight = np.array([1/data_dim] * data_dim)
+    for n in noise_scales:
+        cur_n = 1/2 + n
+        print('training with multiplyltiplyise scale' + str(cur_n))
+        a = np.sqrt(cur_n)
+        b = np.sqrt(1 - cur_n)
+        cur_data = np.add(np.multiply(data,a), np.multiply(noise, b))
+        cur_ae, cur_w,cur_avg, cur_loss, cur_test, cur_test_w = sudo_algo2.multi_weight_weightedMSE(cur_data, 200, 20, 8, 512, 0.1, 10, init_weight)
+        print(find_subset(cur_w))
+        output.append(cur_w)
+    return output    
+
+
 if __name__ == '__main__':
 
 	l_name = ['sphere_1000_1000_10', 'torus_1000_1000_2_1', 'uniformnoise_1000_13_1000', 'sphere_1000_1000_4', 'torus_1000_1000_1_0.5', 'uniformnoise_1000_7_1000']

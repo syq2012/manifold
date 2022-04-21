@@ -81,11 +81,11 @@ def lift(x, k):
 
 # generate eval of x on d random polynomials
 def random_polymonial(data, k, d):
-	# lift_x = [lift(np.array(x), k) for x in data]
-	# (m, n) = lift_x[0].shape
+	lift_x = [lift(np.array(x), k) for x in data]
+	(m, n) = lift_x[0].shape
 	coeff = np.random.rand(d, m)
-	# res = [coeff @ x for x in lift_x]
-	eval_polynomial(data, k, d, coeff)
+	res = [coeff @ x for x in lift_x]
+	# eval_polynomial(data, k, d, coeff)
 	return lift_x, res, coeff
 
 def eval_polynomial(data, k, d, coeff):
