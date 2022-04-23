@@ -131,7 +131,7 @@ def training(train_dataset, valid_dataset, epochs, input_length, code_dim, first
 #     res_loss = None
     for epoch in range(epochs):
 #         loss = 0
-        for x in train_data:
+        for x, index in train_data:
             x = x.to(device)
             
             code, outputs = model(x.float())
@@ -165,16 +165,18 @@ def weighted_MSELoss(output, target, weight, weight_cell):
     # temp = (1/batch_size) * (output - target) ** 2
     # print(torch.sum(temp, dim = 0).size())
     (m, n) = output.size()
-    # return torch.sum(torch.tensor(weight_cell)[:, None] * (weight_tensor *  (output - target) ** 2))
-    return (1/m) * torch.sum(weight_tensor *  (output - target) ** 2)
+    return torch.sum(torch.tensor(weight_cell)[:, None] * (weight_tensor *  (output - target) ** 2))
+    # return (1/m) * torch.sum(weight_tensor *  (output - target) ** 2)
 
 
-def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, code_dim, first_layer_dim, weight, weight_cell):
+def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, code_dim, first_layer_dim, weight, weight_cell, max_loss):
     #  use gpu if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     #  get dataloader 
     train_data = torch.utils.data.DataLoader(train_dataset, batch_size, shuffle=True)
+    # valid_data = torch.utils.data.DataLoader(valid_dataset, batch_size, shuffle=True)
+    
     valid_data = torch.utils.data.DataLoader(valid_dataset, batch_size, shuffle=True)
     
     # create a model from `AE` autoencoder class
@@ -211,8 +213,17 @@ def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, co
         print('[{}/{}] Loss:'.format(epoch+1, epochs), train_loss.item())
 #         loss_list.append(train_loss.item())
         cur_valid_err = test_err_weighted(model, valid_data, weight, weight_cell)
+            
         if cur_valid_err >= valid_error:
-            break
+            # print('here')
+            if max_loss < np.inf:
+                if train_loss.item() <= max_loss:
+                    rea_ae = model
+                    loss_list.append(train_loss.item())
+                    return res_ae, loss_list
+            else:
+                break
+                 
         else:
             valid_error = cur_valid_err
 #             print(test_err(model, valid_data))
@@ -221,6 +232,8 @@ def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, co
             res_ae = model
             loss_list.append(train_loss.item())
 #             res_loss = loss_list
+        
+
     return res_ae, loss_list
 
 # =========================================================================================================================================
@@ -231,7 +244,7 @@ def test_err(autoencoder, data_test):
     criterion = nn.MSELoss()
     res = []
 #     counter = 0
-    for x in data_test:
+    for x, index in data_test:
 #         if counter <= r:
         x = x.to(device)
         code, outputs = autoencoder(x.float())
@@ -242,6 +255,7 @@ def test_err(autoencoder, data_test):
     return np.mean(res)
 
 def test_err_weighted(autoencoder, data_test, weight, weight_cell):
+    # dataset = torch.utils.data.DataLoader(data_test, batch_size, shuffle=False)
     # criterion = nn.MSELoss()
     res = []
 #     counter = 0
@@ -249,11 +263,13 @@ def test_err_weighted(autoencoder, data_test, weight, weight_cell):
 #         if counter <= r:
         x = x.to(device)
         code, outputs = autoencoder(x.float())
+        # print(outputs.size())
         test_loss = weighted_MSELoss(outputs, x.float(), weight, weight_cell[index])
 #         print(type(test_loss))
         res.append(test_loss.item())
 #         counter += batch_size
-    return np.mean(res)
+    # print('len of test res' + str(len(res)))
+    return np.sum(res)
 
 # Save
 def save_autoencoder(model):
