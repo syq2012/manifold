@@ -14,6 +14,17 @@ def sample_spherical(npoints, ndim=2):
     vec = np.random.randn(ndim, npoints)
     vec /= np.linalg.norm(vec, axis=0)
     return vec
+def sample_swiss(num_cell):
+	temp = np.random.uniform(low = 0, high = 1, size = n)
+	x = temp * np.sin(temp)
+	y = temp * np.cos(temp)
+	return np.row_stack((x, y))
+
+def sample_circle(num_cell):
+	temp = np.random.uniform(low = 0, high = 2 * np.pi, size = n)
+	x = np.sin(temp)
+	y = np.cos(temp)
+	return np.row_stack((x, y))
 
 # input: n number of samples
 def sample_disk(n):

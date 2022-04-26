@@ -51,20 +51,24 @@ def get_average(num_round, round_size, train_data, data_dim, max_epoch, code_siz
     return res_avg, res, test_avg, test
 
 
-def output_err(data, noise, data_dim):
-    noise_scales = np.array([i for i in range(10)]) * (1/20)
+def output_err(data, noise, data_dim, cell_dim):
+    noise_scales = np.array([i for i in range(20)]) * (1/20)
     output = []
+    output_cell = []
     init_weight = np.array([1/data_dim] * data_dim)
+    init_cell_weight =np.array([1/cell_dim] * cell_dim)
     for n in noise_scales:
-        cur_n = 1/2 + n
+        # cur_n = 1/2 + n
+        cur_n = n
         print('training with multiplyltiplyise scale' + str(cur_n))
         a = np.sqrt(cur_n)
         b = np.sqrt(1 - cur_n)
         cur_data = np.add(np.multiply(data,a), np.multiply(noise, b))
-        cur_ae, cur_w,cur_avg, cur_loss, cur_test, cur_test_w = sudo_algo2.multi_weight_weightedMSE(cur_data, 200, 20, 8, 512, 0.1, 10, init_weight)
-        print(find_subset(cur_w))
+        cur_ae, cur_w,cur_avg, cur_loss, cur_test, cur_test_w, cur_cell_weight = sudo_algo2.multi_weight_weightedMSE(cur_data, data_dim, 20, 2, 512, 0.2, 20, init_weight,init_cell_weight)
+        print(sudo_algo2.find_subset(cur_w))
         output.append(cur_w)
-    return output    
+        output_cell.append(cur_cell_weight)
+    return ,
 
 
 if __name__ == '__main__':

@@ -52,7 +52,8 @@ class AE(nn.Module):
         data_dim = kwargs["input_shape"]
         code_dim = kwargs["code_dim"]
         first_layer_dim = kwargs["first_layer_dim"]
-        mid_layer_dim = int(first_layer_dim / 2)
+        mid_layer_dim = int(first_layer_dim / 4)
+        final_layer_dim = int(mid_layer_dim / 4)
         print(mid_layer_dim)
         # Encoder
         self.encoder = nn.Sequential(
@@ -62,20 +63,24 @@ class AE(nn.Module):
             nn.ReLU6(),
             nn.Linear(first_layer_dim, mid_layer_dim),
             nn.ReLU6(),
+            nn.Linear(mid_layer_dim, final_layer_dim),
+            nn.ReLU6(),
 #             nn.Linear(64, 16),
 #             nn.ReLU6(),
             
-            nn.Linear(mid_layer_dim, code_dim),
+            nn.Linear(final_layer_dim, code_dim),
         )
 
         # Decoder
         self.decoder = nn.Sequential(
-            nn.Linear(code_dim, mid_layer_dim),
+            nn.Linear(code_dim, final_layer_dim),
             nn.ReLU6(),
 #             nn.Linear(16, 64),
 #             nn.ReLU6(),
 #             nn.Linear(64, 128),
 #             nn.Tanh(),
+            nn.Linear(final_layer_dim, mid_layer_dim),
+            nn.ReLU6(),
             nn.Linear(mid_layer_dim, first_layer_dim),
             nn.ReLU6(),
             nn.Linear(first_layer_dim, data_dim),
@@ -194,9 +199,11 @@ def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, co
 #     for early stopping
     valid_error = np.inf
     res_ae = None
+    min_train_loss = np.inf
+    print('max_loss is' + str(max_loss))
 #     res_loss = None
     for epoch in range(epochs):
-#         loss = 0
+        loss = 0
         for x, index in train_data:
             x = x.to(device)
             # print(index)
@@ -207,33 +214,56 @@ def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, co
             train_loss.backward()
             optimizer.step()
         
-#             loss += train_loss.item()
-#         loss = loss / len(train_data)
+            loss += train_loss.item()
+        # print(len(train_data))
+        # loss = loss 
 #         print("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, epochs, loss)) 
-        print('[{}/{}] Loss:'.format(epoch+1, epochs), train_loss.item())
+        print('[{}/{}] Loss:'.format(epoch+1, epochs), loss)
+        # loss = train_loss.data.item()
 #         loss_list.append(train_loss.item())
-        cur_valid_err = test_err_weighted(model, valid_data, weight, weight_cell)
+        weight_cell_valid = np.array([1/len(valid_dataset)] * len(valid_dataset))
+        cur_valid_err = test_err_weighted(model, valid_data, weight, weight_cell_valid)
             
-        if cur_valid_err >= valid_error:
-            # print('here')
-            if max_loss < np.inf:
-                if train_loss.item() <= max_loss:
-                    rea_ae = model
-                    loss_list.append(train_loss.item())
-                    return res_ae, loss_list
-            else:
-                break
+#         if cur_valid_err >= valid_error:
+#             # print('here')
+#             if max_loss < np.inf:
+#                 if train_loss.item() <= max_loss:
+#                     rea_ae = model
+#                     loss_list.append(train_loss.item())
+#                     return res_ae, loss_list
+#             else:
+#                 break
                  
+#         else:
+#             valid_error = cur_valid_err
+# #             print(test_err(model, valid_data))
+# #             if res_ae != None:
+# #                 print(test_err(res_ae, valid_data))
+#             res_ae = model
+#             loss_list.append(train_loss.item())
+# #             res_loss = loss_list
+        
+        if max_loss < np.inf:
+            # record the best model so far. min_train_loss > max_loss
+            if loss <= min_train_loss:
+                print(min_train_loss)
+                min_train_loss = loss
+                res_ae = model
+                loss_list.append(loss)
+            # if loss <= max_loss and epoch > 5:
+            #     # print(res_ae == None)
+            #     return res_ae, loss_list
         else:
-            valid_error = cur_valid_err
+            if cur_valid_err >= valid_error:
+                return res_ae, loss_list 
+            else:
+                valid_error = cur_valid_err
 #             print(test_err(model, valid_data))
 #             if res_ae != None:
 #                 print(test_err(res_ae, valid_data))
-            res_ae = model
-            loss_list.append(train_loss.item())
-#             res_loss = loss_list
-        
-
+                res_ae = model
+                loss_list.append(loss)
+        # print('here')
     return res_ae, loss_list
 
 # =========================================================================================================================================
@@ -267,8 +297,10 @@ def test_err_weighted(autoencoder, data_test, weight, weight_cell):
         test_loss = weighted_MSELoss(outputs, x.float(), weight, weight_cell[index])
 #         print(type(test_loss))
         res.append(test_loss.item())
+        # print(res)
 #         counter += batch_size
     # print('len of test res' + str(len(res)))
+    # print(res)
     return np.sum(res)
 
 # Save

@@ -111,7 +111,7 @@ def update_weight_gene_or_cell(autoencoder, data, prev_weight, prev_weight_cell,
     else:
         reweight_gene = prev_weight[None, :] * diff
         exp_cell = np.sum(reweight_gene, axis = 1)
-        res_cell = prev_weight_cell * np.exp((-1)*step_size * exp_cell)
+        res_cell = prev_weight_cell * np.exp((-1)*step_size * 100 * exp_cell)
         tot_cell = np.sum(res_cell)
         return res_cell/tot_cell
 
@@ -291,21 +291,23 @@ def multi_weight_weightedMSE(data, d, epoch, cod_dim, first_layer_dim, step_size
     test_w = [] 
     min_test_error = np.inf
     while (itr <= total_round):
-        print(cur_weight)
+        print('cur iteration is ' + str(itr))
+        # print(cur_weight)
 #         train on reweighted data
         # index = np.mod(itr, 5)
         # index2 = np.mod(itr + 2, 5)
         index = 0
         index2 = 2
-        cur_data = encoder.get_dataset_from_list(data, index* 200, 200*(index+ 2))
-        cur_valid = encoder.get_dataset_from_list(data, index2 * 200, 50 + index2 * 200)
+        cur_data = encoder.get_dataset_from_list(data, index* 200, 200*index+ 10)
+        cur_valid = encoder.get_dataset_from_list(data, index2 * 200, 5 + index2 * 200)
         # cur_test = encoder.get_dataset_from_list(data, 450, 500)
         
         cur_ae, cur_loss = encoder.training_weighted_MSE(cur_data, cur_valid, epoch, d, cod_dim, first_layer_dim, cur_weight, cur_weight_cell, max_loss)
-        max_loss = cur_loss[-1]
+        # max_loss = cur_loss[-1]
+        # print(max_loss)
         cur_dataset = torch.utils.data.DataLoader(cur_data, batch_size, shuffle=True)
-        cur_loss = encoder.test_err_weighted(cur_ae, cur_dataset, cur_weight, cur_weight_cell)
-        loss.append(cur_loss)
+        # cur_loss = encoder.test_err_weighted(cur_ae, cur_dataset, cur_weight, cur_weight_cell)
+        loss.append(cur_loss[-1])
         # cur_test_data = torch.utils.data.DataLoader(cur_test, batch_size, shuffle=True)
         # cur_test_error = encoder.test_err_weighted(cur_ae, cur_test_data, cur_weight, cur_weight_cell)
         # print(cur_test_error)
@@ -322,16 +324,20 @@ def multi_weight_weightedMSE(data, d, epoch, cod_dim, first_layer_dim, step_size
 
 #         update weight
         # get_diff_matrix(cur_ae, cur_data)
-        # if np.mod(itr, 2) == 0:
-        #     cur_weight = update_weight_gene_or_cell(cur_ae, cur_data, cur_weight, cur_weight_cell, step_size, True)
-        # else:
-        #     cur_weight_cell = update_weight_gene_or_cell(cur_ae, cur_data, cur_weight, cur_weight_cell, step_size, False)
-        # cur_weight, cur_weight_cell = update_weight_gene_cell(cur_ae, cur_data, cur_weight, cur_weight_cell, step_size)
-        new_weight = update_weight(cur_ae, cur_data, cur_weight, step_size)
+        if np.mod(itr, 2) == 0 or np.mod(itr, 2) == 1:
+            cur_weight = update_weight_gene_or_cell(cur_ae, cur_data, cur_weight, cur_weight_cell, step_size, True)
+        else:
+            cur_weight_cell = update_weight_gene_or_cell(cur_ae, cur_data, cur_weight, cur_weight_cell, step_size, False)
+            # print(np.sum(cur_weight_cell[0:400000]))
+        cur_loss = encoder.test_err_weighted(cur_ae, cur_dataset, cur_weight, cur_weight_cell)
+        
+        # new_weight = update_weight(cur_ae, cur_data, cur_weight, step_size)
+
         # new_weight = update_weight_gene_or_cell(cur_ae, cur_data, cur_weight, cur_weight_cell, step_size, True)
-        cur_loss = encoder.test_err_weighted(cur_ae, cur_dataset, new_weight, cur_weight_cell)
-        # print(relative_entropy(new_weight, cur_weight))
-        cur_weight = new_weight
+        # cur_loss = encoder.test_err_weighted(cur_ae, cur_dataset, new_weight, cur_weight_cell)
+        # cur_weight = new_weight
+
+        max_loss = cur_loss
 
         loss.append(cur_loss)
         pl.plot(x, cur_weight, 'o--') 
@@ -392,7 +398,7 @@ def round(w, threshold):
 
 
 def find_subset(w):
-    threshold = np.max(w)*0.95
+    threshold = np.mean(w[w > 0.001]) * 0.95
     return np.array([w > threshold], dtype = int)
 
 def True_positive(w, true_w):

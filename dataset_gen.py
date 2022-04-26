@@ -32,6 +32,15 @@ def gen_sphereical(num_sample, num_cell,  k):
 	name = 'sphere' + '_' + str(num_sample) + '_'  + str(num_cell) + '_'  +str(k)
 	write(lambda: sample.sample_spherical(num_cell, k), num_sample, name)
 
+# generating cell from a 1d circle
+def gen_circle(num_sample, num_cell):
+	name = 'circle' + '_' + str(num_sample) + '_'  + str(num_cell) 
+	write(lambda: sample.sample_circle(num_cell), num_sample, name)
+
+# generating data from a 1d swiss roll
+def gen_swiss(num_sample, num_cell):
+	name = 'swissroll' + '_' + str(num_sample) + '_'  + str(num_cell)
+	write(lambda: sample.sample_swiss(num_cell), num_sample, name)
 
 # generate torus of outer radius R and inner radius r
 def gen_torus(num_sample, num_cell_toru, R, r):
