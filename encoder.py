@@ -6,15 +6,15 @@ import dataset_gen
 
 import random
 
-# seed = 151
-# torch.manual_seed(seed)
-# torch.cuda.manual_seed(seed)
-# torch.cuda.manual_seed_all(seed)
-# np.random.seed(seed)
-# random.seed(seed)
-# torch.backends.cudnn.benchmark = False
-# torch.backends.cudnn.deterministic = True
-
+seed = 121
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+np.random.seed(seed)
+random.seed(seed)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
+# 
 # Settings
 epochs = 30
 batch_size = 64
@@ -73,7 +73,7 @@ class AE(nn.Module):
         for i in range(len(complete_layer_dim) - 1):
           layer_list.append(nn.Linear(complete_layer_dim[i], complete_layer_dim[i + 1]))
           layer_list.append(nn.ReLU6())
-          layer_list.append(nn.Dropout(p=0.5 - 0.1*i))
+#           layer_list.append(nn.Dropout(p=0.5 - 0.1*i))
 #           layer_list.append(nn.SiLU())
 #           layer_list.append(torch.nn.AlphaDropout(0.6))
         layer_list.append(nn.Linear(complete_layer_dim[-1], code_dim))
@@ -261,7 +261,7 @@ def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, co
 
     # create an optimizer object
     # Adam optimizer with learning rate 1e-3
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-6,  weight_decay=1e-08)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-7,  weight_decay=1e-08)
     loss_list = []
     epoch_loss = []
     # mean-squared error loss
@@ -397,3 +397,4 @@ def test_err_weighted(autoencoder, data_test, weight, weight_cell):
 # Save
 def save_autoencoder(model):
     torch.save(model, 'autoencoder.pth')
+
