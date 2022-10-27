@@ -21,7 +21,8 @@ def sample_swiss(num_cell):
 	return np.row_stack((x, y))
 
 def sample_circle(num_cell):
-	temp = np.random.uniform(low = 0, high = 2 * np.pi, size = n)
+	temp = np.random.uniform(low = 0, high = 2 * np.pi, size = num_cell)
+	print(temp)
 	x = np.sin(temp)
 	y = np.cos(temp)
 	return np.row_stack((x, y))

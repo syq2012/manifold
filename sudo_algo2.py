@@ -1,4 +1,5 @@
 import encoder
+import dataset_gen
 import numpy as np
 import torch
 import torch.nn as nn
@@ -10,9 +11,9 @@ from IPython import display
 import time 
 
 # epochs = 10
-batch_size = 128
+batch_size = 64
 # lr = 0.008
-device= 'cpu'
+device= "cuda" if torch.cuda.is_available() else "cpu"
 
 # multiplicative weight update
 def get_diff(autoencoder, dataset):
@@ -20,7 +21,7 @@ def get_diff(autoencoder, dataset):
     for x, index in dataset:
         x = x.to(device)
         code, output = autoencoder(x.float())
-        temp = output.detach().numpy() - x.numpy()
+        temp = output.cpu().data.detach().numpy() - x.numpy()
         # temp_norm = np.linalg.norm(temp, 2, axis=0)
         temp_norm = np.linalg.norm(temp, 2, axis=0)**2
 #         print(temp_norm.shape)
@@ -69,14 +70,14 @@ def get_diff_matrix(autoencoder, dataset):
         x = x.to(device)
         # print(index)
         code, output = autoencoder(x.float())
-        temp = output.detach().numpy() - x.numpy()
+        temp = output.cpu().data.numpy() - x.cpu().data.numpy()
         # print(index)
         # print(len(temp))
         # print(temp.shape)
         res.append(np.array(temp)**2)
         # cell_index += index.tolist()
             # cell_index = np.concatenate((cell_index, index.numpy()), axis = 1)
-    return np.array(res)
+    return res
 
 def update_weight_gene_cell(autoencoder, data, prev_weight, prev_weight_cell, step_size):
     dataset = torch.utils.data.DataLoader(data, batch_size, shuffle=False)
@@ -93,7 +94,7 @@ def update_weight_gene_cell(autoencoder, data, prev_weight, prev_weight_cell, st
 
     reweight_gene = prev_weight[None, :] * diff
     exp_cell = np.sum(reweight_gene, axis = 1)
-    res_cell = prev_weight_cell * np.exp((-1)*step_size * exp_cell)
+    res_cell = prev_weight_cell * np.exp((-1)* step_size * exp_cell)
     tot_cell = np.sum(res_cell)
 
     return res_gene/tot_gene, res_cell/tot_cell
@@ -111,7 +112,7 @@ def update_weight_gene_or_cell(autoencoder, data, prev_weight, prev_weight_cell,
     else:
         reweight_gene = prev_weight[None, :] * diff
         exp_cell = np.sum(reweight_gene, axis = 1)
-        res_cell = prev_weight_cell * np.exp((-1)*step_size * 100 * exp_cell)
+        res_cell = prev_weight_cell * np.exp((-1)*step_size * 10 * exp_cell)
         tot_cell = np.sum(res_cell)
         return res_cell/tot_cell
 
@@ -259,10 +260,10 @@ def multi_weight_init(data, d, epoch, cod_dim, first_layer_dim, step_size, num_r
 
 # def construct_dataset(data):
     
-def multi_weight_weightedMSE(data, d, epoch, cod_dim, first_layer_dim, step_size, num_round, init_weight, init_weight_cell):
+def multi_weight_weightedMSE(data, d, epoch, cod_dim, list_dims, step_size, num_round, init_weight, init_weight_cell, early_stop):
 #     inputs = ['data-dim', 'max epoch', 'code-dim', 'first-layer-dim: ', 'step-size']
     print('training with ' + 'data-dim: ' + str(d) + 'max epoch: ' + str(epoch) + 
-         'code-dim: ' + str(cod_dim) + 'first-layer-dim: ' + str( first_layer_dim) + 'step-size: ' + str(step_size))
+         'code-dim: ' + str(cod_dim) + 'dimension of hidden layers are: ' + str(list_dims) + 'step-size: ' + str(step_size))
     
 
     # cur_data = encoder.get_dataset_from_list(data, 0, 500)
@@ -276,35 +277,50 @@ def multi_weight_weightedMSE(data, d, epoch, cod_dim, first_layer_dim, step_size
     x = [i for i in range(d)]
     cur_weight = init_weight
     cur_weight_cell = init_weight_cell
-    threshold = 1 / len(init_weight[init_weight > 0]) * (0.99)
+    threshold = 1 / len(init_weight[init_weight > 0]) * (0.95)
     cur_ae = None
     loss = []
+    loss_list = []
     test_error = []
     itr = 0
 #     total_round = 20
     total_round = num_round
     average_weight = np.copy(cur_weight)
     max_loss = np.inf
-    
+    sample_block = 20 if early_stop else 2
+    print('num sample is ' + str(sample_block))
 #     store the autoencoder and weight that gives the lowest test error
 #     test_ae = None
     test_w = [] 
     min_test_error = np.inf
     while (itr <= total_round):
         print('cur iteration is ' + str(itr))
-        # print(cur_weight)
 #         train on reweighted data
         # index = np.mod(itr, 5)
         # index2 = np.mod(itr + 2, 5)
-        index = 0
-        index2 = 2
-        cur_data = encoder.get_dataset_from_list(data, index* 200, 200*index+ 10)
-        cur_valid = encoder.get_dataset_from_list(data, index2 * 200, 5 + index2 * 200)
+#         print(data.shape)
+        if len(data.shape) == 3:
+            print("sythentic data")
+            index = 0
+            index2 = 0
+            cur_data = encoder.get_dataset_from_list(data, index* 200 , 200*index+ sample_block )
+#             cur_valid = encoder.get_dataset_from_list(data, index2 * 200 + sample_block + 5, sample_block + 10 + index2 * 200)
+            cur_valid = encoder.get_dataset_from_list(data, 2, 3)
         # cur_test = encoder.get_dataset_from_list(data, 450, 500)
+        else:
+#             real input
+            s, t = data.shape
+            valid_range = int(t * 0.99)
+            print(valid_range)
+            cur_data = dataset_gen.cellDataset(data[:, 0:valid_range])
+            cur_valid = dataset_gen.cellDataset(data[:, valid_range:t])
+#             print(cur_data.shape)
+#             print(cur_valid.shape)
         
-        cur_ae, cur_loss = encoder.training_weighted_MSE(cur_data, cur_valid, epoch, d, cod_dim, first_layer_dim, cur_weight, cur_weight_cell, max_loss)
+        cur_ae, cur_loss, cur_epoch_loss = encoder.training_weighted_MSE(cur_data, cur_valid, epoch, d, cod_dim, list_dims, cur_weight, cur_weight_cell, max_loss, early_stop, cur_ae)
         # max_loss = cur_loss[-1]
         # print(max_loss)
+        loss_list.append(cur_epoch_loss)
         cur_dataset = torch.utils.data.DataLoader(cur_data, batch_size, shuffle=True)
         # cur_loss = encoder.test_err_weighted(cur_ae, cur_dataset, cur_weight, cur_weight_cell)
         loss.append(cur_loss[-1])
@@ -324,6 +340,7 @@ def multi_weight_weightedMSE(data, d, epoch, cod_dim, first_layer_dim, step_size
 
 #         update weight
         # get_diff_matrix(cur_ae, cur_data)
+#         update gene weight every 10 steps
         if np.mod(itr, 2) == 0 or np.mod(itr, 2) == 1:
             cur_weight = update_weight_gene_or_cell(cur_ae, cur_data, cur_weight, cur_weight_cell, step_size, True)
         else:
@@ -355,7 +372,8 @@ def multi_weight_weightedMSE(data, d, epoch, cod_dim, first_layer_dim, step_size
 
 
         cur_weight = round(cur_weight, threshold)
-
+#         print(np.sum(cur_weight))
+#         print(cur_weight)
 
 
 #         print(np.argsort(cur_weight)[-4:])
@@ -371,10 +389,9 @@ def multi_weight_weightedMSE(data, d, epoch, cod_dim, first_layer_dim, step_size
 #     print("average_weight is")
 #     print(1/total_round * (average_weight))
     # print(test_w)
-    return cur_ae, cur_weight,1/total_round * average_weight, loss, test_error, test_w, cur_weight_cell
+    return cur_ae, cur_weight, average_weight, loss, test_error, test_w, cur_weight_cell, loss_list
     
     
- 
 def multi_weight(data, d, epoch, cod_dim, first_layer_dim, step_size, num_round):
     # weight = np.ones(d) * (1/d)
     weight = np.array([0.1] + [0.9/199]*199)
@@ -394,11 +411,12 @@ def round(w, threshold):
     # r = np.max(w) - np.min(w[w > 0])
     # threshold = 1/len(w[w > 0]) - r * 0.1
     w[w < threshold] = 1/len(w) * 0.01
+#     w[w >= 0.003] = 0.003
     return w/np.sum(w)
 
 
 def find_subset(w):
-    threshold = np.mean(w[w > 0.001]) * 0.95
+    threshold = np.mean(w[w > 1/len(w) * 0.01]) * 0.95
     return np.array([w > threshold], dtype = int)
 
 def True_positive(w, true_w):

@@ -17,12 +17,16 @@ import sample
 def write(gen_fun, num_sample, name):
 	result = [gen_fun().flatten() for i in range(num_sample)]
 	f_name = name + '.csv'
-	savetxt(f_name, result, delimiter= ',')
+# 	path = '/content/drive/MyDrive/Colab Notebooks/'
+	path = ''
+	savetxt(path + f_name, result, delimiter= ',')
 	# tensor_result = torch.from_numpy(result)
 	# cur_dataset = TensorDataset(tensor_result)
 
 def read(file_name, d, n):
-	data = loadtxt(file_name, delimiter = ',')
+# 	path = '/content/drive/MyDrive/Colab Notebooks/'
+	path = ''    
+	data = loadtxt(path + file_name, delimiter = ',')
 	result = [data[i].reshape((d, n)) for i in range(len(data))]
 	return result
 
@@ -92,6 +96,8 @@ def gen_disk_with_noise(num_sample, num_cell, noise_dimension, noise_intensity):
 # returns coefficients of the polynomials (each row represent the correspoinding poly)
 def gen_polynomial_data(file_name, d, n, k, d2):
 	name = file_name + '.csv'
+	print(d)
+	print(n)
 	cur_data = read(name, d, n)
 	lifted, values, coeff = sample.random_polymonial(cur_data, k, d2)
 	x_file = file_name + '_' + 'degree' + '_' + str(k) + '.csv'
@@ -200,10 +206,10 @@ def get_dim(f):
 	l = f.split('_')
 	if l[0] == 'torus':
 		return 3
-	elif l[0] == 'disk':
-		return 2
+	elif l[0] == 'disk' or l[0] == 'circle':
+		return 2 
 	elif l[0] == 'uniformnoise':
-		return l[-2]
+		return l[-1]
 	elif l[-1] == 'padweights':
 		return int(l[-2]) + 1
 	else:
@@ -216,6 +222,7 @@ def get_num_sample(f):
 def stack_list(list_file, list_data_dim, num_cell):
 	
 	temp = [read(list_file[i] + '.csv', list_data_dim[i], num_cell) for i in range(len(list_file))]
+	print(temp[0][0].shape)
 	# for each matrix, normalized each row
 	raw = [[normalized_row(np.array(r)) for r in cur] for cur in temp]
 
@@ -239,13 +246,14 @@ def stack_polynoimal(list_file, list_degree, list_num, num_sample, num_cell):
 # 		gen_gaussian_noise(num_sample, num_cell, noise_dim)
 
 	list_name = [list_file[i] + '_num_poly_' + str(list_num[i]) + '_degree_' + str(list_degree[i]) for i in range(l)]
-	
+
 	# if file does not exist, generate one
 	for i in range(l):
+# 		if not os.path.isfile('/content/drive/MyDrive/Colab Notebooks/' + list_name[i] + '.csv'):
 		if not os.path.isfile(list_name[i] + '.csv'):
 			print('missing' + list_name[i])
 			cur_file = list_file[i]
-			gen_polynomial_data(cur_file, int(get_dim(cur_file)), num_sample, list_degree[i], list_num[i])
+			gen_polynomial_data(cur_file, int(get_dim(cur_file)), num_cell, list_degree[i], list_num[i])
 
 	data = stack_list(list_name, list_num, num_cell)
 	# noise = read(noise_name + '.csv', noise_dim, num_cell)
@@ -266,6 +274,21 @@ def normalized_row(X):
 	temp = X - mean[:, None]
 	return temp / (var[:, None])
 
+def normalized_row_nan(X):
+	X[X == 0] = 'nan'
+	mean = np.nanmean(X, axis = 1)
+	var = np.sqrt(np.nanvar(X, axis = 1))
+
+	(m, n) = X.shape
+	if (len(mean) != m):
+		print('wrong length')
+
+	temp = X - mean[:, None]
+	temp[np.isnan(temp)] = 0
+# 	print(temp)
+# 	print(var)
+	return temp / (var[:, None])
+
 def standard_gaussian_pdf(X):
 	norm = np.linalg.norm(X, 2, axis = 0)**2
 	temp = np.exp(- (1/2) * norm)
@@ -282,6 +305,9 @@ def pad_guassian_weight(file, dim, num_cell):
 def pad_cell(list_data1, list_data2):
 	return [np.concatenate((list_data1[i], list_data2[i]), axis = 1) for i in range(len(list_data1))]
 
+def combine_list(l1, l2, range1, range2):
+    res = [np.concatenate((l1[i][range1[0]:range1[1], :], l2[i][range2[0]:range2[1], :]), axis = 0) for i in range(len(l1))]
+    return res
 # =========================================================================================================================================
 # construct dataset for pytorch 
 # input: matrix with column being a cell 
@@ -291,6 +317,8 @@ class cellDataset(torch.utils.data.Dataset):
 		# parse data into tensor 
 		d, n = data.shape
 		self.data = [torch.from_numpy(data[:,i]) for i in range(n)]
+#         get each row as a data point for reconstruction 
+# 		self.data = [torch.from_numpy(data[i,:]) for i in range(d)]
 
 	def __len__(self):
 		return len(self.data)
