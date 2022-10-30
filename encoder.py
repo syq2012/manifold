@@ -6,15 +6,15 @@ import dataset_gen
 
 import random
 
-# seed = 121
-# torch.manual_seed(seed)
-# torch.cuda.manual_seed(seed)
-# torch.cuda.manual_seed_all(seed)
-# np.random.seed(seed)
-# random.seed(seed)
-# torch.backends.cudnn.benchmark = False
-# torch.backends.cudnn.deterministic = True
-# 
+seed = 121
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+np.random.seed(seed)
+random.seed(seed)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
+
 # Settings
 epochs = 30
 batch_size = 64
@@ -83,7 +83,7 @@ class AE(nn.Module):
         layer_list = []
         for i in range(len(complete_layer_dim) - 1):
           layer_list.append(nn.Linear(complete_layer_dim[i], complete_layer_dim[i + 1]))
-#           layer_list.append(nn.ReLU6())
+          layer_list.append(nn.ReLU6())
 #           layer_list.append(nn.LeakyReLU(0.1))
 #           layer_list.append(nn.Dropout(p=0.5 - 0.1*i))
 #           layer_list.append(nn.Tanh())
@@ -100,6 +100,7 @@ class AE(nn.Module):
 #           decoder_layers.append(nn.Sigmoid())
 #           decoder_layers.append(nn.Dropout(p=0.5 - 0.1*i))
           decoder_layers.append(nn.Linear(complete_layer_dim[-i], complete_layer_dim[-(i + 1)]))
+#           decoder_layers.append(nn.ReLU6())
 #         decoder_layers.append(nn.ReLU6())
         
 #         decoder_layers = [nn.Linear(code_dim, data_dim)]
@@ -255,6 +256,7 @@ def weighted_MSELoss_ignore0(output, target, weight, weight_cell):
 #     print(torch.tensor(weight_cell).to(device))
 #     print((weight_tensor *  (output - target) ** 2).shape)
     return torch.sum(torch.tensor(weight_cell).to(device)[:, None] * (weight_tensor *  temp ** 2))
+#     return torch.sum(weight_tensor *  temp ** 2)
 
 # 
 # def time_avg_loss(output, avg_target, time_avg_dic, weight, weight_cell):
@@ -292,8 +294,8 @@ def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, co
 
     # create an optimizer object
     # Adam optimizer with learning rate 1e-3
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-6,  weight_decay=1e-08)
-#     optimizer = torch.optim.Adam(model.parameters(), lr=1e-7,  weight_decay=1e-08)
+#     optimizer = torch.optim.Adam(model.parameters(), lr=1e-8, weight_decay=1e-08)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-6,  weight_decay=1e-07)
     loss_list = []
     epoch_loss = []
     # mean-squared error loss
@@ -315,8 +317,8 @@ def training_weighted_MSE(train_dataset, valid_dataset, epochs, input_length, co
             code, outputs = model(x.float())
 #             train_loss = criterion(outputs, x.float())
             
-            train_loss = weighted_MSELoss_ignore0(outputs.to(device), x.float(), weight, weight_cell[index]) 
-#             train_loss = weighted_MSELoss(outputs.to(device), x.float(), weight, weight_cell[index])
+#             train_loss = weighted_MSELoss_ignore0(outputs.to(device), x.float(), weight, weight_cell[index]) 
+            train_loss = weighted_MSELoss(outputs.to(device), x.float(), weight, weight_cell[index])
             
             
             train_loss.backward()
@@ -415,8 +417,8 @@ def test_err_weighted(autoencoder, data_test, weight, weight_cell):
         code, outputs = autoencoder(x.float())
         # print(outputs.size())
 #         print(index)
-        test_loss = weighted_MSELoss_ignore0(outputs, x.float(), weight, weight_cell[index])
-#         test_loss = weighted_MSELoss(outputs.T, x.float().T, weight, weight_cell[index])
+#         test_loss = weighted_MSELoss_ignore0(outputs, x.float(), weight, weight_cell[index])
+        test_loss = weighted_MSELoss(outputs, x.float(), weight, weight_cell[index])
 #         print(type(test_loss))
         res.append(test_loss.item())
         # print(res)
